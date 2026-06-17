@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import async_engine_from_config
 
 from backend.config import settings
 from backend.database import Base
-from backend.models import Friendship, ScoreEvent, User  # noqa: F401
+from backend.models import Friendship, Leaderboard, ScoreEvent, User  # noqa: F401
 
 # Alembic Config object
 config = context.config

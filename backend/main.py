@@ -8,7 +8,7 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import Base, engine, get_db
-from backend.models import Friendship, User  # noqa: F401 — ensure models are registered
+from backend.models import Friendship, Leaderboard, User  # noqa: F401 — ensure models are registered
 from backend.redis_client import redis_client
 from backend.routers import leaderboard, scores, websocket
 from backend.schemas.score import (

@@ -1,4 +1,4 @@
-"""Pydantic schemas for scores, users, and API responses."""
+"""Pydantic schemas for scores, users, leaderboards, and API responses."""
 
 from datetime import datetime
 from decimal import Decimal
@@ -26,25 +26,80 @@ class UserResponse(BaseModel):
     model_config = {"from_attributes": True}
 
 
-# ── Score schemas ─────────────────────────────────────────────
+# ── Leaderboard CRUD schemas ─────────────────────────────────
 
-class ScoreSubmit(BaseModel):
-    leaderboard_id: str = Field(..., min_length=1, max_length=100)
-    score_delta: Decimal = Field(..., decimal_places=2)
+class LeaderboardCreate(BaseModel):
+    id: str = Field(..., min_length=1, max_length=100)
+    name: str = Field(..., min_length=1, max_length=255)
+    description: Optional[str] = None
 
 
-class ScoreEventResponse(BaseModel):
-    id: UUID
-    user_id: UUID
-    leaderboard_id: str
-    score_delta: Decimal
-    total_score: Decimal
-    recorded_at: datetime
+class LeaderboardMeta(BaseModel):
+    id: str
+    name: str
+    description: Optional[str] = None
+    created_at: datetime
 
     model_config = {"from_attributes": True}
 
 
-# ── Leaderboard schemas ──────────────────────────────────────
+# ── Score update schemas ─────────────────────────────────────
+
+class ScoreSubmit(BaseModel):
+    """Body for POST /leaderboards/{lb_id}/scores."""
+    user_id: UUID
+    delta: float = Field(..., description="Points to add to the user's score")
+
+
+class LegacyScoreSubmit(BaseModel):
+    """Body for legacy POST /scores/{user_id} endpoint."""
+    leaderboard_id: str = Field(..., min_length=1, max_length=100)
+    score_delta: float = Field(..., description="Points to add to the user's score")
+
+
+class ScoreUpdateResponse(BaseModel):
+    """Returned after a score update — includes rank change info."""
+    user_id: UUID
+    new_score: float
+    new_rank: int
+    previous_rank: Optional[int] = None
+    rank_change: Optional[int] = None
+
+
+# ── Rank / Surrounding schemas ───────────────────────────────
+
+class SurroundingEntry(BaseModel):
+    rank: int
+    user_id: str
+    username: Optional[str] = None
+    score: float
+
+
+class UserRankResponse(BaseModel):
+    rank: int
+    score: float
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    surrounding: list[SurroundingEntry] = []
+
+
+# ── Paginated top-N schemas ──────────────────────────────────
+
+class TopEntry(BaseModel):
+    rank: int
+    user_id: str
+    username: Optional[str] = None
+    score: float
+
+
+class TopLeaderboardResponse(BaseModel):
+    total_users: int
+    page: int
+    limit: int
+    entries: list[TopEntry] = []
+
+
+# ── Legacy leaderboard response (kept for backward compat) ───
 
 class LeaderboardEntry(BaseModel):
     user_id: UUID
@@ -57,6 +112,19 @@ class LeaderboardResponse(BaseModel):
     leaderboard_id: str
     entries: list[LeaderboardEntry]
     total: int
+
+
+# ── Legacy score event response ──────────────────────────────
+
+class ScoreEventResponse(BaseModel):
+    id: UUID
+    user_id: UUID
+    leaderboard_id: str
+    score_delta: Decimal
+    total_score: Decimal
+    recorded_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 # ── Health schema ─────────────────────────────────────────────
