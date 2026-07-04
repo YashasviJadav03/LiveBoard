@@ -2,6 +2,7 @@
 
 from datetime import datetime
 from decimal import Decimal
+from enum import Enum
 from typing import Optional
 from uuid import UUID
 
@@ -41,6 +42,16 @@ class LeaderboardMeta(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+# ── Segment enum ─────────────────────────────────────────────
+
+class SegmentType(str, Enum):
+    """Leaderboard time/scope segments."""
+    all_time = "all_time"
+    daily = "daily"
+    weekly = "weekly"
+    regional = "regional"
 
 
 # ── Score update schemas ─────────────────────────────────────
@@ -96,7 +107,38 @@ class TopLeaderboardResponse(BaseModel):
     total_users: int
     page: int
     limit: int
+    segment: str = "all_time"
     entries: list[TopEntry] = []
+
+
+# ── Friends leaderboard schemas (Phase 3) ────────────────────
+
+class FriendEntry(BaseModel):
+    rank: int
+    user_id: str
+    username: Optional[str] = None
+    score: float
+
+
+class FriendsLeaderboardResponse(BaseModel):
+    leaderboard_id: str
+    user_id: str
+    total_friends: int
+    limit: int
+    entries: list[FriendEntry] = []
+
+
+# ── Segments listing schemas (Phase 3) ───────────────────────
+
+class SegmentInfo(BaseModel):
+    segment: str
+    redis_key: str
+    member_count: int
+
+
+class SegmentsResponse(BaseModel):
+    leaderboard_id: str
+    segments: list[SegmentInfo] = []
 
 
 # ── Legacy leaderboard response (kept for backward compat) ───
@@ -141,3 +183,20 @@ class FriendshipResponse(BaseModel):
     user_id: UUID
     friend_id: UUID
     message: str
+
+
+# ── Score history schemas (Phase 5) ──────────────────────────
+
+class ScoreHistoryEntry(BaseModel):
+    """Single data-point for the score-over-time chart."""
+    recorded_at: datetime
+    score_delta: float
+    total_score: float
+
+
+class ScoreHistoryResponse(BaseModel):
+    user_id: str
+    leaderboard_id: str
+    entries: list[ScoreHistoryEntry] = []
+
+

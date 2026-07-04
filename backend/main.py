@@ -1,5 +1,7 @@
 """LiveBoard — FastAPI application entry point."""
 
+from fastapi.middleware.cors import CORSMiddleware
+
 from contextlib import asynccontextmanager
 from uuid import UUID
 
@@ -9,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import Base, engine, get_db
 from backend.models import Friendship, Leaderboard, User  # noqa: F401 — ensure models are registered
-from backend.redis_client import redis_client
+from backend.redis_client import get_redis, redis_client
 from backend.routers import leaderboard, scores, websocket
 from backend.schemas.score import (
     FriendshipResponse,
@@ -36,6 +38,15 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# ── CORS (allow React dev server) ─────────────────────────────
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 # ── Register routers ─────────────────────────────────────────
 app.include_router(scores.router)
 app.include_router(leaderboard.router)
@@ -45,7 +56,7 @@ app.include_router(websocket.router)
 # ── Core endpoints ────────────────────────────────────────────
 
 @app.get("/health", response_model=HealthResponse)
-async def health_check(db: AsyncSession = Depends(get_db)):
+async def health_check(db: AsyncSession = Depends(get_db), redis=Depends(get_redis)):
     """Check connectivity to PostgreSQL and Redis."""
     db_status = "disconnected"
     redis_status = "disconnected"
@@ -57,7 +68,7 @@ async def health_check(db: AsyncSession = Depends(get_db)):
         pass
 
     try:
-        pong = await redis_client.ping()
+        pong = await redis.ping()
         if pong:
             redis_status = "connected"
     except Exception:
