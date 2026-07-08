@@ -194,6 +194,7 @@ cd frontend && npm install && npm run dev
    - `DATABASE_URL` → from Render PostgreSQL
    - `REDIS_URL` → from Render Redis
    - `RATE_LIMIT_MAX` → `100`
+   - `FRONTEND_URL` → `https://your-vercel-app-url.vercel.app` (to allow CORS)
 
 ### Frontend → Vercel
 

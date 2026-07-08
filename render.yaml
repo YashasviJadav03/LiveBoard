@@ -18,6 +18,8 @@ services:
           property: connectionString
       - key: RATE_LIMIT_MAX
         value: "100"
+      - key: FRONTEND_URL
+        value: "https://your-vercel-frontend-url.vercel.app" # Replace with your Vercel URL
     healthCheckPath: /health
 
   - type: redis

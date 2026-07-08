@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     DATABASE_URL: str = "postgresql+asyncpg://liveboard:liveboard123@localhost/liveboard"
     REDIS_URL: str = "redis://localhost:6379"
+    FRONTEND_URL: str = "http://localhost:5173"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
