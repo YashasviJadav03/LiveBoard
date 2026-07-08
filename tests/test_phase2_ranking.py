@@ -363,3 +363,57 @@ async def test_score_update_performance(client: AsyncClient):
     assert result["new_rank"] == 1
     # Allow generous headroom for CI / test overhead; Redis ops themselves are <5ms
     assert elapsed_ms < 500, f"Score update took {elapsed_ms:.1f}ms — too slow"
+
+
+# ──────────────────────────────────────────────────────────────
+# 8. Rate limiting — max 10 updates per user per minute
+# ──────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_rate_limit_blocks_after_10(client: AsyncClient):
+    """11th score update within 60s should be rejected with 429."""
+    uid = await create_user(client, "ratelimit_user")
+    await create_leaderboard(client, "test_rl_lb")
+
+    # First 10 should succeed
+    for i in range(10):
+        resp = await client.post(f"/leaderboards/test_rl_lb/scores", json={
+            "user_id": uid,
+            "delta": 1.0,
+        })
+        assert resp.status_code == 201, f"Request {i+1} failed: {resp.text}"
+
+    # 11th should be rate-limited
+    resp = await client.post(f"/leaderboards/test_rl_lb/scores", json={
+        "user_id": uid,
+        "delta": 1.0,
+    })
+    assert resp.status_code == 429
+    assert "Rate limit" in resp.json()["detail"]
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_per_user(client: AsyncClient):
+    """Rate limit is per-user — different users have independent limits."""
+    u1 = await create_user(client, "rl_user1")
+    u2 = await create_user(client, "rl_user2")
+    await create_leaderboard(client, "test_rl2_lb")
+
+    # Exhaust u1's rate limit
+    for _ in range(10):
+        await client.post(f"/leaderboards/test_rl2_lb/scores", json={
+            "user_id": u1, "delta": 1.0,
+        })
+
+    # u1 should be blocked
+    resp1 = await client.post(f"/leaderboards/test_rl2_lb/scores", json={
+        "user_id": u1, "delta": 1.0,
+    })
+    assert resp1.status_code == 429
+
+    # u2 should still work
+    resp2 = await client.post(f"/leaderboards/test_rl2_lb/scores", json={
+        "user_id": u2, "delta": 1.0,
+    })
+    assert resp2.status_code == 201
+

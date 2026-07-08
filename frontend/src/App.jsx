@@ -10,8 +10,8 @@ import { getHealth } from './api';
 
 // ── Demo config ──────────────────────────────────
 // These will be replaced by UI controls or URL params in production
-const DEMO_LB_ID = 'demo_board';
-const API_BASE = 'http://localhost:8000';
+const DEMO_LB_ID = 'coding_contest';
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export default function App() {
   const [lbId] = useState(DEMO_LB_ID);

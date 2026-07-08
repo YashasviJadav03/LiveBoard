@@ -156,7 +156,7 @@ async def test_users_table_has_required_columns():
                 c["name"] for c in inspect(sync_conn).get_columns("users")
             }
         )
-    required = {"id", "username", "display_name", "region", "created_at"}
+    required = {"id", "username", "display_name", "region", "avatar_url", "created_at"}
     assert required.issubset(columns), f"Missing columns: {required - columns}"
 
 
@@ -169,7 +169,7 @@ async def test_score_events_table_has_required_columns():
                 c["name"] for c in inspect(sync_conn).get_columns("score_events")
             }
         )
-    required = {"id", "user_id", "leaderboard_id", "score_delta", "total_score", "recorded_at"}
+    required = {"id", "user_id", "leaderboard_id", "score_delta", "total_score_after", "rank_after", "source", "recorded_at"}
     assert required.issubset(columns), f"Missing columns: {required - columns}"
 
 
@@ -182,7 +182,7 @@ async def test_leaderboards_table_has_required_columns():
                 c["name"] for c in inspect(sync_conn).get_columns("leaderboards")
             }
         )
-    required = {"id", "name", "description", "created_at"}
+    required = {"id", "name", "description", "is_active", "created_at"}
     assert required.issubset(columns), f"Missing columns: {required - columns}"
 
 
@@ -199,6 +199,17 @@ async def test_friendships_table_has_required_columns():
     assert required.issubset(columns), f"Missing columns: {required - columns}"
 
 
+@pytest.mark.asyncio
+async def test_rank_snapshots_table_has_required_columns():
+    """The rank_snapshots table has all required columns."""
+    async with test_engine.connect() as conn:
+        columns = await conn.run_sync(
+            lambda sync_conn: {
+                c["name"] for c in inspect(sync_conn).get_columns("rank_snapshots")
+            }
+        )
+    required = {"id", "leaderboard_id", "user_id", "rank", "score", "snapshotted_at"}
+    assert required.issubset(columns), f"Missing columns: {required - columns}"
 # ══════════════════════════════════════════════════════════════
 # Bonus: docker-compose.yml structure validation
 # ══════════════════════════════════════════════════════════════

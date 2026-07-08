@@ -15,6 +15,7 @@ class UserCreate(BaseModel):
     username: str = Field(..., min_length=1, max_length=100)
     display_name: Optional[str] = Field(None, max_length=100)
     region: Optional[str] = Field(None, max_length=50)
+    avatar_url: Optional[str] = None
 
 
 class UserResponse(BaseModel):
@@ -22,6 +23,7 @@ class UserResponse(BaseModel):
     username: str
     display_name: Optional[str] = None
     region: Optional[str] = None
+    avatar_url: Optional[str] = None
     created_at: datetime
 
     model_config = {"from_attributes": True}
@@ -31,7 +33,7 @@ class UserResponse(BaseModel):
 
 class LeaderboardCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=100)
-    name: str = Field(..., min_length=1, max_length=255)
+    name: str = Field(..., min_length=1, max_length=200)
     description: Optional[str] = None
 
 
@@ -39,6 +41,7 @@ class LeaderboardMeta(BaseModel):
     id: str
     name: str
     description: Optional[str] = None
+    is_active: bool = True
     created_at: datetime
 
     model_config = {"from_attributes": True}

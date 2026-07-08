@@ -1,6 +1,7 @@
 """Score update endpoints — Phase 4: Segmented writes + WebSocket push."""
 
 import logging
+import os
 import time
 from datetime import datetime, timezone
 from uuid import UUID
@@ -26,6 +27,10 @@ TIEBREAK_SCALE = 1e10
 # TTLs for time-windowed segments (seconds)
 DAILY_TTL = 172800    # 2 days
 WEEKLY_TTL = 691200   # 8 days
+
+# Rate limiting — configurable via env for load testing
+RATE_LIMIT_MAX = int(os.environ.get("RATE_LIMIT_MAX", "10"))
+RATE_LIMIT_WINDOW = 60    # per 60-second window
 
 
 def composite_score(actual_score: float, achieved_at_ts: float) -> float:
@@ -228,8 +233,9 @@ async def _submit_score(
     db: AsyncSession,
     redis,
 ) -> ScoreUpdateResponse:
-    """Core score-update logic — Phase 3: writes to ALL segment keys.
+    """Core score-update logic — writes to ALL segment keys.
 
+    0. Rate-limit check (max 10 updates per user per minute).
     1. Verify the user exists in PostgreSQL (also fetches region).
     2. Build segment keys (all-time, daily, weekly, regional).
     3. Pipeline-read previous composite scores + all-time rank.
@@ -240,6 +246,18 @@ async def _submit_score(
     """
     user_key = str(user_id)
     now_ts = time.time()
+
+    # ── 0. Rate-limit check ───────────────────────────────────
+    rl_key = f"ratelimit:{user_key}:{int(now_ts) // 60}"
+    pipe_rl = redis.pipeline(transaction=True)
+    pipe_rl.incr(rl_key)
+    pipe_rl.expire(rl_key, RATE_LIMIT_WINDOW)
+    rl_count, _ = await pipe_rl.execute()
+    if rl_count > RATE_LIMIT_MAX:
+        raise HTTPException(
+            status_code=429,
+            detail=f"Rate limit exceeded — max {RATE_LIMIT_MAX} score updates per minute",
+        )
 
     # ── 1. Verify user + fetch region ─────────────────────────
     user = await db.get(User, user_id)
@@ -305,7 +323,9 @@ async def _submit_score(
         user_id=user_id,
         leaderboard_id=lb_id,
         score_delta=delta,
-        total_score=new_actual_all,
+        total_score_after=new_actual_all,
+        rank_after=new_rank,
+        source="api",
     )
     db.add(event)
     await db.flush()

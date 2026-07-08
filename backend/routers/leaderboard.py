@@ -450,7 +450,7 @@ async def get_score_history(
         ScoreHistoryEntry(
             recorded_at=e.recorded_at,
             score_delta=float(e.score_delta),
-            total_score=float(e.total_score),
+            total_score=float(e.total_score_after),
         )
         for e in events
     ]

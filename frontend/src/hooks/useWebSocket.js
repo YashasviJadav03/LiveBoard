@@ -12,7 +12,8 @@ export default function useWebSocket(lbId, userId, onMessage) {
   const connect = useCallback(() => {
     if (!lbId || !userId) return;
 
-    const url = `ws://localhost:8000/ws/${lbId}/${userId}`;
+    const wsBase = import.meta.env.VITE_WS_URL || 'ws://localhost:8000';
+    const url = `${wsBase}/ws/${lbId}/${userId}`;
     const ws = new WebSocket(url);
     wsRef.current = ws;
 
