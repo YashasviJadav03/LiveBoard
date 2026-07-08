@@ -63,22 +63,25 @@ export default function ScoreHistory({ lbId, userId, wsMessage }) {
   }, [wsMessage]);
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <span className="card-title">📈 Score History</span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <span className="text-sm font-bold uppercase tracking-[0.5px] text-text-secondary">📈 Score History</span>
+        <span className="text-[12px] text-muted">
           {data.length} events
         </span>
       </div>
 
       {loading && data.length === 0 ? (
-        <div className="loading"><div className="spinner" />Loading...</div>
+        <div className="flex items-center justify-center p-10 text-muted text-sm gap-2.5">
+          <div className="w-[18px] h-[18px] border-2 border-border border-t-accent rounded-full animate-spin" />
+          Loading...
+        </div>
       ) : data.length === 0 ? (
-        <div className="chart-empty">
+        <div className="py-10 px-5 text-center text-muted text-sm">
           No score history yet.<br />Submit some scores to see the chart!
         </div>
       ) : (
-        <div className="chart-container">
+        <div className="pt-4 px-2 pb-2">
           <ResponsiveContainer width="100%" height={200}>
             <AreaChart data={data}>
               <defs>
@@ -87,15 +90,15 @@ export default function ScoreHistory({ lbId, userId, wsMessage }) {
                   <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                 </linearGradient>
               </defs>
-              <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+              <CartesianGrid strokeDasharray="3 3" stroke="#2a3354" />
               <XAxis
                 dataKey="time"
-                stroke="var(--text-muted)"
+                stroke="#5a6580"
                 fontSize={11}
                 tickLine={false}
               />
               <YAxis
-                stroke="var(--text-muted)"
+                stroke="#5a6580"
                 fontSize={11}
                 tickLine={false}
                 axisLine={false}

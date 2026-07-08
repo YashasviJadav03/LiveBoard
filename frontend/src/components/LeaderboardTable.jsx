@@ -10,11 +10,11 @@ const SEGMENTS = [
 ];
 
 function RankBadge({ rank }) {
-  let cls = 'default';
-  if (rank === 1) cls = 'gold';
-  else if (rank === 2) cls = 'silver';
-  else if (rank === 3) cls = 'bronze';
-  return <span className={`rank-badge ${cls}`}>{rank}</span>;
+  let cls = 'bg-primary text-text-secondary border border-border';
+  if (rank === 1) cls = 'bg-gradient-to-br from-gold to-[#d97706] text-[#1a1a1a] border-none';
+  else if (rank === 2) cls = 'bg-gradient-to-br from-silver to-[#64748b] text-[#1a1a1a] border-none';
+  else if (rank === 3) cls = 'bg-gradient-to-br from-bronze to-[#b45309] text-[#1a1a1a] border-none';
+  return <span className={`inline-flex items-center justify-center w-8 h-8 rounded-lg font-extrabold text-sm ${cls}`}>{rank}</span>;
 }
 
 export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
@@ -87,21 +87,21 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
   const totalPages = Math.ceil(totalUsers / limit) || 1;
 
   return (
-    <div className="card">
-      <div className="card-header">
-        <span className="card-title">🏆 Leaderboard</span>
-        <span style={{ fontSize: 12, color: 'var(--text-muted)' }}>
+    <div className="bg-card border border-border rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-border flex items-center justify-between">
+        <span className="text-sm font-bold uppercase tracking-[0.5px] text-text-secondary">🏆 Leaderboard</span>
+        <span className="text-[12px] text-muted">
           {totalUsers} players
         </span>
       </div>
 
       {/* Segment Tabs */}
-      <div style={{ padding: '12px 20px 0' }}>
-        <div className="segment-tabs">
+      <div className="pt-3 px-5">
+        <div className="flex gap-1 p-1 bg-primary rounded-lg">
           {SEGMENTS.map((seg) => (
             <button
               key={seg.key}
-              className={`segment-tab ${segment === seg.key ? 'active' : ''}`}
+              className={`px-4 py-2 border-none rounded-md bg-transparent text-muted text-[13px] font-semibold whitespace-nowrap transition-all duration-200 hover:text-text-secondary hover:bg-card-hover ${segment === seg.key ? 'bg-accent text-white shadow-[0_2px_8px_var(--tw-colors-accent-glow)]' : ''}`}
               onClick={() => { setSegment(seg.key); setPage(1); }}
             >
               {seg.label}
@@ -111,41 +111,41 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
       </div>
 
       {/* Table */}
-      <div style={{ padding: '0 0 12px' }}>
+      <div className="pb-3">
         {loading ? (
-          <div className="loading">
-            <div className="spinner" />
+          <div className="flex items-center justify-center p-10 text-muted text-sm gap-2.5">
+            <div className="w-[18px] h-[18px] border-2 border-border border-t-accent rounded-full animate-spin" />
             Loading...
           </div>
         ) : entries.length === 0 ? (
-          <div className="loading" style={{ color: 'var(--text-muted)' }}>
+          <div className="flex items-center justify-center p-10 text-muted text-sm gap-2.5">
             No entries yet. Submit some scores!
           </div>
         ) : (
           <>
-            <table className="lb-table">
+            <table className="w-full border-collapse">
               <thead>
                 <tr>
-                  <th style={{ width: 60 }}>Rank</th>
-                  <th>Player</th>
-                  <th style={{ textAlign: 'right' }}>Score</th>
+                  <th className="w-[60px] px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.8px] text-muted border-b border-border">Rank</th>
+                  <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.8px] text-muted border-b border-border">Player</th>
+                  <th className="px-4 py-2.5 text-right text-[11px] font-bold uppercase tracking-[0.8px] text-muted border-b border-border">Score</th>
                 </tr>
               </thead>
               <tbody>
                 {entries.map((entry) => (
                   <tr
                     key={entry.user_id}
-                    className={flashRows[entry.user_id] || ''}
+                    className={`hover:bg-card-hover transition-colors ${flashRows[entry.user_id] === 'rank-up' ? 'animate-flashGreen' : flashRows[entry.user_id] === 'rank-down' ? 'animate-flashRed' : ''}`}
                     style={entry.user_id === userId ? { background: 'rgba(99,102,241,0.06)' } : {}}
                   >
-                    <td><RankBadge rank={entry.rank} /></td>
-                    <td className="username-cell">
+                    <td className="px-4 py-3 text-sm border-b border-[#2a335480]"><RankBadge rank={entry.rank} /></td>
+                    <td className="px-4 py-3 text-sm border-b border-[#2a335480] font-semibold">
                       {entry.username || entry.user_id.slice(0, 8)}
                       {entry.user_id === userId && (
-                        <span style={{ marginLeft: 8, fontSize: 11, color: 'var(--accent)', fontWeight: 500 }}>YOU</span>
+                        <span className="ml-2 text-[11px] text-accent font-medium">YOU</span>
                       )}
                     </td>
-                    <td className="score-cell" style={{ textAlign: 'right' }}>
+                    <td className="px-4 py-3 text-sm border-b border-[#2a335480] text-right font-semibold tabular-nums text-accent-hover">
                       {Number(entry.score).toLocaleString()}
                     </td>
                   </tr>
@@ -155,22 +155,19 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
 
             {/* Pagination */}
             {totalPages > 1 && segment !== 'friends' && (
-              <div style={{
-                display: 'flex', justifyContent: 'center', gap: 8,
-                padding: '12px 20px', borderTop: '1px solid var(--border)'
-              }}>
+              <div className="flex justify-center gap-2 px-5 py-3 border-t border-border">
                 <button
-                  className="segment-tab"
+                  className="px-4 py-2 border-none rounded-md bg-transparent text-muted text-[13px] font-semibold whitespace-nowrap transition-all duration-200 hover:text-text-secondary hover:bg-card-hover disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => setPage((p) => Math.max(1, p - 1))}
                   disabled={page === 1}
                 >
                   ← Prev
                 </button>
-                <span style={{ padding: '8px 12px', fontSize: 13, color: 'var(--text-muted)' }}>
+                <span className="px-3 py-2 text-[13px] text-muted">
                   Page {page} of {totalPages}
                 </span>
                 <button
-                  className="segment-tab"
+                  className="px-4 py-2 border-none rounded-md bg-transparent text-muted text-[13px] font-semibold whitespace-nowrap transition-all duration-200 hover:text-text-secondary hover:bg-card-hover disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
                   disabled={page === totalPages}
                 >

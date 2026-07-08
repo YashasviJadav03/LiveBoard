@@ -141,18 +141,12 @@ export default function App() {
 
   if (backendOk === false) {
     return (
-      <div className="app-container">
-        <div style={{
-          textAlign: 'center', padding: '80px 20px',
-          color: 'var(--text-muted)', fontSize: 16
-        }}>
-          <div style={{ fontSize: 48, marginBottom: 16 }}>⚠️</div>
-          <h2 style={{ color: 'var(--text-primary)', marginBottom: 8 }}>Backend Not Running</h2>
+      <div className="max-w-[1400px] mx-auto px-8 py-6">
+        <div className="text-center py-20 px-5 text-muted text-base">
+          <div className="text-5xl mb-4">⚠️</div>
+          <h2 className="text-text-primary mb-2 text-2xl font-bold">Backend Not Running</h2>
           <p>Make sure Docker is running and execute:</p>
-          <code style={{
-            display: 'inline-block', marginTop: 12, padding: '10px 20px',
-            background: 'var(--bg-card)', borderRadius: 8, color: 'var(--accent-hover)'
-          }}>
+          <code className="inline-block mt-3 py-2.5 px-5 bg-card rounded-lg text-accent-hover font-mono">
             docker compose up --build
           </code>
         </div>
@@ -161,20 +155,19 @@ export default function App() {
   }
 
   return (
-    <div className="app-container">
+    <div className="max-w-[1400px] mx-auto px-8 py-6">
       <ToastContainer toasts={toasts} />
 
       {/* Header */}
-      <header className="app-header">
+      <header className="flex items-center justify-between mb-8 pb-6 border-b border-border">
         <div>
-          <h1 className="app-title">LiveBoard</h1>
-          <p className="app-subtitle">Real-time leaderboard dashboard</p>
+          <h1 className="text-[28px] font-extrabold tracking-tight bg-gradient-to-br from-accent to-[#a78bfa] bg-clip-text text-transparent">LiveBoard</h1>
+          <p className="text-[13px] text-muted mt-1">Real-time leaderboard dashboard</p>
         </div>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
+        <div className="flex items-center gap-4">
           {/* User selector */}
           <select
-            className="form-select"
-            style={{ width: 200 }}
+            className="w-[200px] px-3.5 py-2.5 bg-primary border border-border rounded-lg text-text-primary text-sm font-sans transition-colors outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-glow"
             value={currentUserId}
             onChange={(e) => setCurrentUserId(e.target.value)}
           >
@@ -185,15 +178,15 @@ export default function App() {
             ))}
           </select>
 
-          <div className={`connection-badge ${connected ? 'connected' : 'disconnected'}`}>
-            <span className="connection-dot" />
+          <div className={`flex items-center gap-2 px-[14px] py-1.5 rounded-[20px] text-xs font-semibold bg-card border border-border ${connected ? 'border-green text-green' : 'border-red text-red'}`}>
+            <span className={`w-2 h-2 rounded-full bg-current ${connected ? 'animate-pulse' : ''}`} />
             {connected ? 'Live' : 'Offline'}
           </div>
         </div>
       </header>
 
       {/* Main Grid */}
-      <div className="main-grid">
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
         {/* Left: Leaderboard Table */}
         <LeaderboardTable
           lbId={lbId}
@@ -202,7 +195,7 @@ export default function App() {
         />
 
         {/* Right: Sidebar */}
-        <div className="sidebar">
+        <div className="flex flex-col gap-5">
           <ScoreSubmit
             lbId={lbId}
             users={users}

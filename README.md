@@ -228,7 +228,7 @@ python -m locust -f loadtests/locustfile.py --host=http://localhost:8000
 |---|---|
 | **Backend** | Python 3.12, FastAPI, SQLAlchemy (async), uvicorn (4 workers) |
 | **Database** | PostgreSQL 15 (audit + users), Redis 7 (rankings + pub/sub) |
-| **Frontend** | React 18, Vite, Recharts, WebSocket |
+| **Frontend** | React 18, Vite, Tailwind CSS v3, Recharts, WebSocket |
 | **Testing** | pytest (83 tests), Locust (load testing) |
 | **Infra** | Docker Compose, Render (backend), Vercel (frontend) |
 
