@@ -5,6 +5,7 @@ import ScoreSubmit from './components/ScoreSubmit';
 import MyRank from './components/MyRank';
 import ScoreHistory from './components/ScoreHistory';
 import { ToastContainer, useToasts } from './components/Toast';
+import CreatePlayerModal from './components/CreatePlayerModal';
 import useWebSocket from './hooks/useWebSocket';
 import { getHealth } from './api';
 
@@ -20,6 +21,7 @@ export default function App() {
   const [wsMessage, setWsMessage] = useState(null);
   const [toasts, addToast] = useToasts();
   const [backendOk, setBackendOk] = useState(null);
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   // Check backend health
   useEffect(() => {
@@ -30,85 +32,31 @@ export default function App() {
 
   // Fetch users + ensure demo leaderboard exists
   useEffect(() => {
+    const fetchUsers = async () => {
+      try {
+        const res = await fetch(`${API_BASE}/users`);
+        if (res.ok) {
+          const fetched = await res.json();
+          setUsers(fetched);
+          if (fetched.length > 0 && !currentUserId) {
+            setCurrentUserId(fetched[0].id);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch users', err);
+      }
+    };
+
     const init = async () => {
       try {
-        // Create demo leaderboard (ignore 409 if exists)
+        // Ensure leaderboard exists
         await fetch(`${API_BASE}/leaderboards`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ id: DEMO_LB_ID, name: 'Demo Leaderboard' }),
-        });
-
-        // Create some demo users if none exist
-        const usersToCreate = [
-          { username: 'alex_storm', display_name: 'Alex Storm', region: 'US-EAST' },
-          { username: 'maya_fire', display_name: 'Maya Fire', region: 'EU-WEST' },
-          { username: 'kai_zen', display_name: 'Kai Zen', region: 'ASIA' },
-          { username: 'nova_star', display_name: 'Nova Star', region: 'US-WEST' },
-          { username: 'zara_light', display_name: 'Zara Light', region: 'EU-WEST' },
-        ];
-
-        for (const u of usersToCreate) {
-          await fetch(`${API_BASE}/users`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(u),
-          }).catch(() => {});
-        }
-
-        // Fetch all users (we need a list endpoint)
-        // Since we don't have GET /users, we'll create and track them
-        const fetched = [];
-        for (const u of usersToCreate) {
-          try {
-            const res = await fetch(`${API_BASE}/users`, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(u),
-            });
-            if (res.status === 201) {
-              fetched.push(await res.json());
-            }
-          } catch {}
-        }
-
-        // If users already existed, find them by trying to get their scores
-        // Workaround: query the leaderboard top to find existing users
-        if (fetched.length === 0) {
-          try {
-            const topRes = await fetch(`${API_BASE}/leaderboards/${DEMO_LB_ID}/top?limit=50`);
-            if (topRes.ok) {
-              const topData = await topRes.json();
-              for (const entry of topData.entries || []) {
-                fetched.push({
-                  id: entry.user_id,
-                  username: entry.username || entry.user_id.slice(0, 8),
-                });
-              }
-            }
-          } catch {}
-        }
-
-        // Fallback: re-create users and get them
-        if (fetched.length === 0) {
-          // Users exist but we can't list them. Use the created users from above.
-          for (const u of usersToCreate) {
-            try {
-              const searchRes = await fetch(`${API_BASE}/users`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(u),
-              });
-              const body = await searchRes.json();
-              if (searchRes.status === 201) fetched.push(body);
-            } catch {}
-          }
-        }
-
-        setUsers(fetched);
-        if (fetched.length > 0 && !currentUserId) {
-          setCurrentUserId(fetched[0].id);
-        }
+          body: JSON.stringify({ id: DEMO_LB_ID, name: 'Live Coding Contest' }),
+        }).catch(() => {});
+        
+        await fetchUsers();
       } catch (err) {
         console.error('Init error:', err);
       }
@@ -137,6 +85,12 @@ export default function App() {
 
   const handleScoreSubmitted = () => {
     // WS will handle the live updates
+  };
+
+  const handlePlayerCreated = (newUser) => {
+    setUsers((prev) => [newUser, ...prev]);
+    setCurrentUserId(newUser.id);
+    setShowCreateModal(false);
   };
 
   if (backendOk === false) {
@@ -178,12 +132,26 @@ export default function App() {
             ))}
           </select>
 
+          <button
+            onClick={() => setShowCreateModal(true)}
+            className="px-3.5 py-2.5 bg-accent hover:bg-accent-hover text-white rounded-lg text-sm font-semibold shadow-lg shadow-accent/20 transition-all"
+          >
+            + New Player
+          </button>
+
           <div className={`flex items-center gap-2 px-[14px] py-1.5 rounded-[20px] text-xs font-semibold bg-card border border-border ${connected ? 'border-green text-green' : 'border-red text-red'}`}>
             <span className={`w-2 h-2 rounded-full bg-current ${connected ? 'animate-pulse' : ''}`} />
             {connected ? 'Live' : 'Offline'}
           </div>
         </div>
       </header>
+
+      {showCreateModal && (
+        <CreatePlayerModal
+          onClose={() => setShowCreateModal(false)}
+          onCreated={handlePlayerCreated}
+        />
+      )}
 
       {/* Main Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">

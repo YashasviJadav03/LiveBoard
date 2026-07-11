@@ -116,6 +116,13 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     return user
 
 
+@app.get("/users", response_model=list[UserResponse])
+async def list_users(db: AsyncSession = Depends(get_db)):
+    """Get all users (in a real app, use pagination!)."""
+    result = await db.execute(select(User).order_by(User.created_at.desc()))
+    return result.scalars().all()
+
+
 @app.get("/users/{user_id}", response_model=UserResponse)
 async def get_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
     """Get a user by their ID."""
