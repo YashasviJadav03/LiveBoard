@@ -31,14 +31,22 @@ async def lifespan(app: FastAPI):
     from backend.connection_manager import manager
     pubsub_task = asyncio.create_task(manager.listen_pubsub())
     
+    # Launch bot simulator locally on the port Render assigns
+    import subprocess
+    import os
+    port = os.getenv("PORT", "8000")
+    bot_env = os.environ.copy()
+    bot_env["API_URL"] = f"http://127.0.0.1:{port}"
+    bot_process = subprocess.Popen(["python", "scripts/bot_simulator.py"], env=bot_env)
+    
     yield
     
+    bot_process.terminate()
     pubsub_task.cancel()
     try:
         await pubsub_task
     except asyncio.CancelledError:
         pass
-        
     await engine.dispose()
     await redis_client.aclose()
 
