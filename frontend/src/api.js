@@ -25,7 +25,7 @@ export const getFriendsTop = (lbId, userId, limit = 50) =>
 
 // ── Scores ───────────────────────────────────────
 export const submitScore = (lbId, userId, delta) =>
-  api.post(`/leaderboards/${lbId}/scores`, { user_id: userId, delta });
+  api.post(`/scores/${lbId}/scores`, { user_id: userId, delta });
 
 // ── Score History ────────────────────────────────
 export const getScoreHistory = (lbId, userId, limit = 100) =>

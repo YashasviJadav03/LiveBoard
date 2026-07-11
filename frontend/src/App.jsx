@@ -77,7 +77,8 @@ export default function App() {
         'displaced'
       );
     } else if (msg.type === 'leaderboard_update') {
-      addToast('Leaderboard updated!', 'update');
+      // Too noisy with the bot running continuously:
+      // addToast('Leaderboard updated!', 'update');
     }
   }, [addToast]);
 
