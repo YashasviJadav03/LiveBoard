@@ -101,8 +101,9 @@ async def create_user(payload: UserCreate, db: AsyncSession = Depends(get_db)):
     """Create a new user."""
     # check for duplicate username
     existing = await db.execute(select(User).where(User.username == payload.username))
-    if existing.scalar_one_or_none():
-        raise HTTPException(status_code=409, detail="Username already taken")
+    existing_user = existing.scalar_one_or_none()
+    if existing_user:
+        return existing_user
 
     user = User(
         username=payload.username,
