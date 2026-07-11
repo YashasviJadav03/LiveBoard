@@ -292,62 +292,38 @@ async def get_top(
 async def get_friends_top(
     lb_id: str,
     user_id: UUID,
+    page: int = Query(default=1, ge=1),
     limit: int = Query(default=20, ge=1, le=200),
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
-    """Friends leaderboard — computed dynamically.
-
-    1. Fetch friend IDs from the ``friendships`` table.
-    2. Include the requesting user themselves.
-    3. Batch-fetch scores from Redis via pipeline ZSCORE.
-    4. Sort descending, return top *limit* entries with friend-group rank.
-    """
+    """Friends leaderboard — paginated from dedicated Redis sorted set."""
     user_key = str(user_id)
-    redis_key = f"lb:{lb_id}:all"
+    friend_lb_key = f"lb:{lb_id}:friends:{user_key}"
+    offset = (page - 1) * limit
 
     # ── 1. Verify the requesting user exists ──────────────────
     user = await db.get(User, user_id)
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
 
-    # ── 2. Get friend IDs from PostgreSQL ─────────────────────
-    result = await db.execute(
-        select(Friendship.friend_id).where(Friendship.user_id == user_id)
-    )
-    friend_rows = result.all()
-    member_ids = [str(row.friend_id) for row in friend_rows] + [user_key]
-
-    # ── 3. Batch-fetch scores from Redis (pipelined) ──────────
+    # ── 2. Pipelined: get page + total count ──────────────────
     pipe = redis.pipeline(transaction=True)
-    for uid in member_ids:
-        pipe.zscore(redis_key, uid)
-    scores = await pipe.execute()
+    pipe.zrevrange(friend_lb_key, offset, offset + limit - 1, withscores=True)
+    pipe.zcard(friend_lb_key)
+    page_data, total_friends = await pipe.execute()
 
-    # ── 4. Pair up, filter out None (users with no score) ─────
-    scored_members = [
-        (uid, comp_score)
-        for uid, comp_score in zip(member_ids, scores)
-        if comp_score is not None
-    ]
-
-    # ── 5. Sort by composite score descending ─────────────────
-    scored_members.sort(key=lambda x: x[1], reverse=True)
-
-    # ── 6. Take top N ─────────────────────────────────────────
-    top_members = scored_members[:limit]
-
-    # ── 7. Resolve usernames in batch ─────────────────────────
-    top_user_ids = [uid for uid, _ in top_members]
-    username_map = await _resolve_usernames(top_user_ids, db)
+    # ── 3. Resolve usernames in batch ─────────────────────────
+    user_ids = [member for member, _score in page_data]
+    username_map = await _resolve_usernames(user_ids, db)
 
     entries: list[FriendEntry] = []
-    for rank_idx, (uid, comp_score) in enumerate(top_members):
-        uname, _ = username_map.get(uid, (None, None))
+    for idx, (member, comp_score) in enumerate(page_data):
+        uname, _ = username_map.get(member, (None, None))
         entries.append(
             FriendEntry(
-                rank=rank_idx + 1,
-                user_id=uid,
+                rank=offset + idx + 1,  # 1-indexed
+                user_id=member,
                 username=uname,
                 score=extract_actual_score(comp_score),
             )
@@ -356,7 +332,7 @@ async def get_friends_top(
     return FriendsLeaderboardResponse(
         leaderboard_id=lb_id,
         user_id=user_key,
-        total_friends=len(scored_members),
+        total_friends=total_friends,
         limit=limit,
         entries=entries,
     )
@@ -449,8 +425,8 @@ async def get_score_history(
     entries = [
         ScoreHistoryEntry(
             recorded_at=e.recorded_at,
-            score_delta=float(e.score_delta),
-            total_score=float(e.total_score_after),
+            score_delta=int(e.score_delta),
+            total_score=int(e.total_score_after),
         )
         for e in events
     ]

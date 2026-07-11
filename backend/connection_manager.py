@@ -5,9 +5,13 @@ methods for targeted and broadcast message delivery.
 """
 
 import logging
+import json
+import asyncio
 from typing import Any
 
 from fastapi import WebSocket
+
+from backend.redis_client import redis_client
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +42,58 @@ class ConnectionManager:
             if not lb_conns:
                 del self.connections[lb_id]
 
-    async def send_to_user(
+    async def publish_to_user(self, lb_id: str, user_id: str, message: dict[str, Any]) -> None:
+        """Publish a message to a specific user via Redis Pub/Sub."""
+        payload = {
+            "target": "user",
+            "lb_id": lb_id,
+            "user_id": user_id,
+            "message": message,
+        }
+        await redis_client.publish("liveboard:ws_events", json.dumps(payload))
+
+    async def publish_to_leaderboard(self, lb_id: str, message: dict[str, Any]) -> None:
+        """Publish a broadcast message to a leaderboard via Redis Pub/Sub."""
+        payload = {
+            "target": "leaderboard",
+            "lb_id": lb_id,
+            "message": message,
+        }
+        await redis_client.publish("liveboard:ws_events", json.dumps(payload))
+
+    async def listen_pubsub(self) -> None:
+        """Listen to Redis Pub/Sub and dispatch messages to local WebSockets."""
+        pubsub = redis_client.pubsub()
+        await pubsub.subscribe("liveboard:ws_events")
+        logger.info("Started Redis Pub/Sub listener for WebSockets.")
+        try:
+            async for message in pubsub.listen():
+                if message["type"] == "message":
+                    data_str = message["data"]
+                    try:
+                        data = json.loads(data_str)
+                        target = data.get("target")
+                        lb_id = data.get("lb_id")
+                        msg = data.get("message")
+                        
+                        if target == "user":
+                            uid = data.get("user_id")
+                            if uid and lb_id and msg:
+                                await self._send_to_user_local(lb_id, uid, msg)
+                        elif target == "leaderboard":
+                            if lb_id and msg:
+                                await self._broadcast_to_leaderboard_local(lb_id, msg)
+                    except json.JSONDecodeError:
+                        logger.warning("Failed to decode Pub/Sub message: %s", data_str)
+        except asyncio.CancelledError:
+            logger.info("Pub/Sub listener cancelled.")
+        except Exception as e:
+            logger.error("Pub/Sub listener error: %s", e)
+        finally:
+            await pubsub.unsubscribe("liveboard:ws_events")
+            await pubsub.close()
+
+    async def _send_to_user_local(
         self, lb_id: str, user_id: str, message: dict[str, Any]
     ) -> None:
         """Send a JSON message to a specific user on a leaderboard.
@@ -58,7 +113,7 @@ class ConnectionManager:
             )
             await self.disconnect(lb_id, user_id)
 
-    async def broadcast_to_leaderboard(
+    async def _broadcast_to_leaderboard_local(
         self, lb_id: str, message: dict[str, Any]
     ) -> None:
         """Broadcast a JSON message to all users connected to a leaderboard.

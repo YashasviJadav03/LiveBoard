@@ -62,19 +62,19 @@ class SegmentType(str, Enum):
 class ScoreSubmit(BaseModel):
     """Body for POST /leaderboards/{lb_id}/scores."""
     user_id: UUID
-    delta: float = Field(..., description="Points to add to the user's score")
+    delta: int = Field(..., description="Points to add to the user's score")
 
 
 class LegacyScoreSubmit(BaseModel):
     """Body for legacy POST /scores/{user_id} endpoint."""
     leaderboard_id: str = Field(..., min_length=1, max_length=100)
-    score_delta: float = Field(..., description="Points to add to the user's score")
+    score_delta: int = Field(..., description="Points to add to the user's score")
 
 
 class ScoreUpdateResponse(BaseModel):
     """Returned after a score update — includes rank change info."""
     user_id: UUID
-    new_score: float
+    new_score: int
     new_rank: int
     previous_rank: Optional[int] = None
     rank_change: Optional[int] = None
@@ -86,12 +86,12 @@ class SurroundingEntry(BaseModel):
     rank: int
     user_id: str
     username: Optional[str] = None
-    score: float
+    score: int
 
 
 class UserRankResponse(BaseModel):
     rank: int
-    score: float
+    score: int
     username: Optional[str] = None
     display_name: Optional[str] = None
     surrounding: list[SurroundingEntry] = []
@@ -103,7 +103,7 @@ class TopEntry(BaseModel):
     rank: int
     user_id: str
     username: Optional[str] = None
-    score: float
+    score: int
 
 
 class TopLeaderboardResponse(BaseModel):
@@ -120,7 +120,7 @@ class FriendEntry(BaseModel):
     rank: int
     user_id: str
     username: Optional[str] = None
-    score: float
+    score: int
 
 
 class FriendsLeaderboardResponse(BaseModel):
@@ -193,8 +193,8 @@ class FriendshipResponse(BaseModel):
 class ScoreHistoryEntry(BaseModel):
     """Single data-point for the score-over-time chart."""
     recorded_at: datetime
-    score_delta: float
-    total_score: float
+    score_delta: int
+    total_score: int
 
 
 class ScoreHistoryResponse(BaseModel):

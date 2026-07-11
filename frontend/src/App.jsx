@@ -141,7 +141,7 @@ export default function App() {
 
   if (backendOk === false) {
     return (
-      <div className="max-w-[1400px] mx-auto px-8 py-6">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-4 sm:py-6">
         <div className="text-center py-20 px-5 text-muted text-base">
           <div className="text-5xl mb-4">⚠️</div>
           <h2 className="text-text-primary mb-2 text-2xl font-bold">Backend Not Running</h2>
@@ -155,19 +155,19 @@ export default function App() {
   }
 
   return (
-    <div className="max-w-[1400px] mx-auto px-8 py-6">
+    <div className="max-w-[1400px] mx-auto px-4 sm:px-8 py-4 sm:py-6">
       <ToastContainer toasts={toasts} />
 
       {/* Header */}
-      <header className="flex items-center justify-between mb-8 pb-6 border-b border-border">
+      <header className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 sm:gap-0 mb-6 sm:mb-8 pb-6 border-b border-border">
         <div>
-          <h1 className="text-[28px] font-extrabold tracking-tight bg-gradient-to-br from-accent to-[#a78bfa] bg-clip-text text-transparent">LiveBoard</h1>
-          <p className="text-[13px] text-muted mt-1">Real-time leaderboard dashboard</p>
+          <h1 className="text-[24px] sm:text-[28px] font-extrabold tracking-tight bg-gradient-to-br from-accent to-[#a78bfa] bg-clip-text text-transparent">LiveBoard</h1>
+          <p className="text-[12px] sm:text-[13px] text-muted mt-1">Real-time leaderboard dashboard</p>
         </div>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-3 sm:gap-4 w-full sm:w-auto">
           {/* User selector */}
           <select
-            className="w-[200px] px-3.5 py-2.5 bg-primary border border-border rounded-lg text-text-primary text-sm font-sans transition-colors outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-glow"
+            className="flex-1 sm:w-[200px] sm:flex-none px-3.5 py-2.5 bg-primary border border-border rounded-lg text-text-primary text-sm font-sans transition-colors outline-none focus:border-accent focus:ring-[3px] focus:ring-accent-glow"
             value={currentUserId}
             onChange={(e) => setCurrentUserId(e.target.value)}
           >

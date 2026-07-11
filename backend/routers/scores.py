@@ -6,12 +6,14 @@ import time
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, BackgroundTasks
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
 
 from backend.connection_manager import manager
 from backend.database import get_db
-from backend.models.user import ScoreEvent, User
+from backend.models.user import ScoreEvent, User, Friendship
+from backend.models.leaderboard import Leaderboard
 from backend.redis_client import get_redis
 from backend.schemas.score import LegacyScoreSubmit, ScoreUpdateResponse
 
@@ -43,9 +45,9 @@ def composite_score(actual_score: float, achieved_at_ts: float) -> float:
     return actual_score * TIEBREAK_SCALE + (TIEBREAK_SCALE - achieved_at_ts)
 
 
-def extract_actual_score(composite: float) -> float:
+def extract_actual_score(composite: float) -> int:
     """Strip the tiebreak component, returning the user-visible score."""
-    return int(composite / TIEBREAK_SCALE)
+    return int(composite // TIEBREAK_SCALE)
 
 
 # ── Redis key resolver ───────────────────────────────────────
@@ -162,7 +164,7 @@ async def _push_score_notifications(
 
     # ── 1. Rank change notification ───────────────────────────
     if previous_rank is not None and previous_rank != new_rank:
-        await manager.send_to_user(lb_id, user_key, {
+        await manager.publish_to_user(lb_id, user_key, {
             "type": "rank_change",
             "user_id": user_key,
             "previous_rank": previous_rank,
@@ -182,7 +184,7 @@ async def _push_score_notifications(
             }
             for i, (member, comp) in enumerate(top10_raw)
         ]
-        await manager.broadcast_to_leaderboard(lb_id, {
+        await manager.publish_to_leaderboard(lb_id, {
             "type": "leaderboard_update",
             "lb_id": lb_id,
             "segment": "all_time",
@@ -195,7 +197,7 @@ async def _push_score_notifications(
         if displaced_raw:
             displaced_uid = displaced_raw[0]
             if displaced_uid != user_key:
-                await manager.send_to_user(lb_id, displaced_uid, {
+                await manager.publish_to_user(lb_id, displaced_uid, {
                     "type": "displaced",
                     "previous_rank": new_rank,
                     "new_rank": new_rank + 1,
@@ -213,6 +215,7 @@ async def _push_score_notifications(
 async def submit_score_legacy(
     user_id: UUID,
     payload: LegacyScoreSubmit,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
     redis=Depends(get_redis),
 ):
@@ -221,15 +224,60 @@ async def submit_score_legacy(
         lb_id=payload.leaderboard_id,
         user_id=user_id,
         delta=payload.score_delta,
+        background_tasks=background_tasks,
+        db=db,
+        redis=redis,
+    )
+
+@router.post(
+    "/{lb_id}/scores",
+    response_model=ScoreUpdateResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+async def submit_score(
+    lb_id: str,
+    payload: ScoreSubmit,
+    background_tasks: BackgroundTasks,
+    db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
+):
+    """Core endpoint for submitting a score."""
+    # verify leaderboard exists
+    lb = await db.get(Leaderboard, lb_id)
+    if not lb:
+        raise HTTPException(status_code=404, detail=f"Leaderboard '{lb_id}' not found")
+
+    return await _submit_score(
+        lb_id=lb_id,
+        user_id=payload.user_id,
+        delta=payload.delta,
+        background_tasks=background_tasks,
         db=db,
         redis=redis,
     )
 
 
+async def _update_friends_leaderboards(lb_id: str, user_id: UUID, composite: float, db: AsyncSession, redis):
+    """Background task to sync a user's score to all their friends' personal leaderboards."""
+    result = await db.execute(
+        select(Friendship.user_id).where(Friendship.friend_id == user_id)
+    )
+    friend_ids = result.scalars().all()
+    
+    pipe = redis.pipeline(transaction=False)
+    for fid in friend_ids:
+        friend_lb_key = f"lb:{lb_id}:friends:{fid}"
+        pipe.zadd(friend_lb_key, {str(user_id): composite})
+    # Also update their own friends lb so they appear on it
+    pipe.zadd(f"lb:{lb_id}:friends:{user_id}", {str(user_id): composite})
+    await pipe.execute()
+
+
 async def _submit_score(
     lb_id: str,
     user_id: UUID,
-    delta: float,
+    delta: int,
+    background_tasks: BackgroundTasks,
     db: AsyncSession,
     redis,
 ) -> ScoreUpdateResponse:
@@ -290,13 +338,18 @@ async def _submit_score(
 
     # ── 4. Compute new composite for each segment ─────────────
     new_composites: list[float] = []
-    new_actual_all = 0.0
+    new_actual_all = 0
     for idx, prev_comp in enumerate(prev_composites):
-        prev_actual = (
-            extract_actual_score(prev_comp) if prev_comp is not None else 0.0
-        )
+        if prev_comp is not None:
+            prev_actual = int(prev_comp // TIEBREAK_SCALE)
+            prev_ts = TIEBREAK_SCALE - (prev_comp - prev_actual * TIEBREAK_SCALE)
+            eff_ts = prev_ts if delta <= 0 else now_ts
+        else:
+            prev_actual = 0
+            eff_ts = now_ts
+            
         new_actual = prev_actual + delta
-        new_comp = composite_score(new_actual, now_ts)
+        new_comp = composite_score(new_actual, eff_ts)
         new_composites.append(new_comp)
         if idx == 0:
             new_actual_all = new_actual  # capture all-time actual for response
@@ -357,5 +410,15 @@ async def _submit_score(
             "Failed to push WS notifications for lb=%s user=%s",
             lb_id, user_key, exc_info=True,
         )
+
+    # ── 9. Update friends leaderboards via background task ────
+    background_tasks.add_task(
+        _update_friends_leaderboards,
+        lb_id,
+        user_id,
+        new_composites[0],
+        db,
+        redis,
+    )
 
     return response

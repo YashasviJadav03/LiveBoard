@@ -3,14 +3,15 @@
 from fastapi.middleware.cors import CORSMiddleware
 
 from contextlib import asynccontextmanager
+import asyncio
 from uuid import UUID
 
-from fastapi import Depends, FastAPI, HTTPException, status
+from fastapi import Depends, FastAPI, HTTPException, status, BackgroundTasks
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from backend.database import Base, engine, get_db
-from backend.models import Friendship, Leaderboard, RankSnapshot, User  # noqa: F401 — ensure models are registered
+from backend.models import Friendship, Leaderboard, RankSnapshot, User, ScoreEvent  # noqa: F401 — ensure models are registered
 from backend.redis_client import get_redis, redis_client
 from backend.routers import leaderboard, scores, websocket
 from backend.schemas.score import (
@@ -26,7 +27,18 @@ async def lifespan(app: FastAPI):
     """Startup: create tables. Shutdown: dispose engine + close Redis."""
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        
+    from backend.connection_manager import manager
+    pubsub_task = asyncio.create_task(manager.listen_pubsub())
+    
     yield
+    
+    pubsub_task.cancel()
+    try:
+        await pubsub_task
+    except asyncio.CancelledError:
+        pass
+        
     await engine.dispose()
     await redis_client.aclose()
 
@@ -112,6 +124,29 @@ async def get_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
     return user
 
 
+async def _sync_new_friendship_redis(user_id: UUID, friend_id: UUID, lb_ids: list[str], redis):
+    """Sync two users' scores into each other's friend leaderboards in Redis."""
+    if not lb_ids:
+        return
+        
+    pipe = redis.pipeline(transaction=False)
+    for lb_id in lb_ids:
+        redis_key = f"lb:{lb_id}:all"
+        u_score = await redis.zscore(redis_key, str(user_id))
+        f_score = await redis.zscore(redis_key, str(friend_id))
+        
+        if u_score is not None:
+            pipe.zadd(f"lb:{lb_id}:friends:{friend_id}", {str(user_id): u_score})
+            pipe.zadd(f"lb:{lb_id}:friends:{user_id}", {str(user_id): u_score})
+            
+        if f_score is not None:
+            pipe.zadd(f"lb:{lb_id}:friends:{user_id}", {str(friend_id): f_score})
+            pipe.zadd(f"lb:{lb_id}:friends:{friend_id}", {str(friend_id): f_score})
+            
+    if len(pipe.command_stack) > 0:
+        await pipe.execute()
+
+
 @app.post(
     "/users/{user_id}/friends/{friend_id}",
     response_model=FriendshipResponse,
@@ -120,7 +155,9 @@ async def get_user(user_id: UUID, db: AsyncSession = Depends(get_db)):
 async def add_friendship(
     user_id: UUID,
     friend_id: UUID,
+    background_tasks: BackgroundTasks,
     db: AsyncSession = Depends(get_db),
+    redis=Depends(get_redis),
 ):
     """Add a bidirectional friendship between two users."""
     if user_id == friend_id:
@@ -148,6 +185,16 @@ async def add_friendship(
     db.add(Friendship(user_id=user_id, friend_id=friend_id))
     db.add(Friendship(user_id=friend_id, friend_id=user_id))
     await db.flush()
+
+    # Find active leaderboards for both users
+    result = await db.execute(
+        select(ScoreEvent.leaderboard_id)
+        .where(ScoreEvent.user_id.in_([user_id, friend_id]))
+        .distinct()
+    )
+    lb_ids = result.scalars().all()
+
+    background_tasks.add_task(_sync_new_friendship_redis, user_id, friend_id, lb_ids, redis)
 
     return FriendshipResponse(
         user_id=user_id,

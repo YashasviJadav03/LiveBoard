@@ -15,7 +15,7 @@ export default function ScoreSubmit({ lbId, users, onScoreSubmitted }) {
     setResult(null);
 
     try {
-      const res = await submitScore(lbId, selectedUser, parseFloat(delta));
+      const res = await submitScore(lbId, selectedUser, parseInt(delta, 10));
       const data = res.data;
 
       let message = `Score updated! New rank: #${data.new_rank} (${data.new_score} pts)`;

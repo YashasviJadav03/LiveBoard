@@ -97,7 +97,7 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
 
       {/* Segment Tabs */}
       <div className="pt-3 px-5">
-        <div className="flex gap-1 p-1 bg-primary rounded-lg">
+        <div className="flex gap-1 p-1 bg-primary rounded-lg overflow-x-auto">
           {SEGMENTS.map((seg) => (
             <button
               key={seg.key}
@@ -123,8 +123,9 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
           </div>
         ) : (
           <>
-            <table className="w-full border-collapse">
-              <thead>
+            <div className="overflow-x-auto">
+              <table className="w-full border-collapse">
+                <thead>
                 <tr>
                   <th className="w-[60px] px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.8px] text-muted border-b border-border">Rank</th>
                   <th className="px-4 py-2.5 text-left text-[11px] font-bold uppercase tracking-[0.8px] text-muted border-b border-border">Player</th>
@@ -151,7 +152,8 @@ export default function LeaderboardTable({ lbId, userId, wsMessage, region }) {
                   </tr>
                 ))}
               </tbody>
-            </table>
+              </table>
+            </div>
 
             {/* Pagination */}
             {totalPages > 1 && segment !== 'friends' && (
