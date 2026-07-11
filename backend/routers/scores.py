@@ -15,7 +15,7 @@ from backend.database import get_db
 from backend.models.user import ScoreEvent, User, Friendship
 from backend.models.leaderboard import Leaderboard
 from backend.redis_client import get_redis
-from backend.schemas.score import LegacyScoreSubmit, ScoreUpdateResponse
+from backend.schemas.score import LegacyScoreSubmit, ScoreSubmit, ScoreUpdateResponse
 
 logger = logging.getLogger(__name__)
 
